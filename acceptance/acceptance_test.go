@@ -2182,17 +2182,11 @@ func testAcceptance(
 							})
 
 							it("continues with a warning", func() {
-								t.Log(pack.Run(
-									"build", repoName,
-									"-p", filepath.Join("testdata", "mock_app"),
-									"--run-image", runImageName,
-								))
-								output, err := pack.Run(
+								output := pack.RunSuccessfully(
 									"build", repoName,
 									"-p", filepath.Join("testdata", "mock_app"),
 									"--run-image", runImageName,
 								)
-								assert.Nil(err)
 
 								assertOutput := assertions.NewOutputAssertionManager(t, output)
 								assertOutput.ReportsRunImageStackNotMatchingBuilder(
