@@ -2182,7 +2182,7 @@ func testAcceptance(
 							})
 
 							it("continues with a warning", func() {
-								output := pack.RunSuccessfully(
+								output := pack.JustRunSuccessfully(
 									"build", repoName,
 									"-p", filepath.Join("testdata", "mock_app"),
 									"--run-image", runImageName,
