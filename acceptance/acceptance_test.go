@@ -2187,6 +2187,7 @@ func testAcceptance(
 									"-p", filepath.Join("testdata", "mock_app"),
 									"--run-image", runImageName,
 								)
+								fmt.Println(output, err)
 								assert.Nil(err)
 
 								assertOutput := assertions.NewOutputAssertionManager(t, output)
