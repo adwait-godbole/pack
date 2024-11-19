@@ -96,6 +96,10 @@ jobs:
           done < architectures.txt
           jq --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
             '.metadata.timestamp = $timestamp' combined-sbom.cdx.json > temp.json && mv temp.json combined-sbom.cdx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: combined-sbom.cdx.json
+          path: combined-sbom.cdx.json
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
       - name: Attach combined SBOM, Sign and Verify Images using cosign
