@@ -76,13 +76,8 @@ jobs:
                 combined-sbom.cdx.json "$sbom_json_file" > temp.json && mv temp.json combined-sbom.cdx.json
             fi
           done < architectures.txt
-          
           jq --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
             '.metadata.timestamp = $timestamp' combined-sbom.cdx.json > temp.json && mv temp.json combined-sbom.cdx.json
-      - uses: actions/upload-artifact@v4
-        with:
-          name: combined-sbom-${{ matrix.config }}.cdx.json          
-          path: combined-sbom.cdx.json
       - name: Login to Dockerhub
         uses: docker/login-action@v3
         with:
@@ -111,15 +106,15 @@ jobs:
             local tag=$1
             local alias=${2:-}
 
-            cosign attach sbom --sbom "combined-sbom.cdx.json" \
+            cosign attest --predicate "combined-sbom.cdx.json" \
               --type cyclonedx \
+              -y \
               "$tag@${IMG_DIGEST}"
 
             cosign sign -r -y \
               -a version=${{ steps.version.outputs.result }} \
               -a config=${{ matrix.config }} \
               ${alias:+-a alias=$alias} \
-              --attachment sbom \
               "$tag@${IMG_DIGEST}"
 
             cosign verify \
@@ -128,7 +123,12 @@ jobs:
               -a version=${{ steps.version.outputs.result }} \
               -a config=${{ matrix.config }} \
               ${alias:+-a alias=$alias} \
-              --attachment sbom \
+              "$tag@${IMG_DIGEST}"
+
+            cosign verify-attestation \
+              --certificate-identity-regexp "https://github.com/${{ github.repository_owner }}/pack/.github/workflows/delivery-docker.yml" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+              --type cyclonedx \
               "$tag@${IMG_DIGEST}"
           }
 
