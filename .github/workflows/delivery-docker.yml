@@ -84,24 +84,27 @@ jobs:
             gh release download --pattern "${pattern}" ${{ github.event.release.tag_name }} &
           done < architectures.txt
           wait
+      - name: Combine SBOMs
+        run: |
+          cp "pack-v${{ steps.version.outputs.result }}-linux-sbom.cdx.json" "combined-sbom.cdx.json"
+          while IFS= read -r arch; do
+            if [ "$arch" != "amd64" ]; then
+              sbom_json_file="pack-v${{ steps.version.outputs.result }}-linux-${arch}-sbom.cdx.json"
+              jq -s '.[0].components = (.[0].components + .[1].components) | .[0]' \
+                combined-sbom.cdx.json "$sbom_json_file" > temp.json && mv temp.json combined-sbom.cdx.json
+            fi
+          done < architectures.txt
+          jq --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+            '.metadata.timestamp = $timestamp' combined-sbom.cdx.json > temp.json && mv temp.json combined-sbom.cdx.json
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
-      - name: Attach SBOMs, Sign and Verify Images using cosign
+      - name: Attach combined SBOM, Sign and Verify Images using cosign
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           secure_image_release() {
             local tag=$1
             local alias=${2:-}
-
-            mkdir -p sboms
-
-            while IFS= read -r arch; do
-              sbom_json_file=$([ "$arch" = "amd64" ] && echo "pack-v${{ steps.version.outputs.result }}-linux-sbom.cdx.json" || echo "pack-v${{ steps.version.outputs.result }}-linux-${arch}-sbom.cdx.json")
-              cp "$sbom_json_file" "sboms/${arch}-sbom.cdx.json"
-            done < architectures.txt
-
-            jq -s '.[0] * {"components": ([.[].components] | add)}' sboms/*-sbom.cdx.json > combined-sbom.cdx.json
 
             cosign attach sbom --sbom "combined-sbom.cdx.json" \
               --type cyclonedx \
