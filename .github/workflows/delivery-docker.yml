@@ -19,6 +19,7 @@ env:
   REGISTRY_NAME: 'docker.io'
   IMG_NAME: 'pack'
   ARCHITECTURES: arm64,amd64,s390x,ppc64le
+  GH_TOKEN: ${{ github.token }}
 
 jobs:
   deliver-docker:
@@ -93,14 +94,18 @@ jobs:
             local tag=$1
             local alias=${2:-}
 
+            mkdir -p sboms
+
             while IFS= read -r arch; do
               sbom_json_file=$([ "$arch" = "amd64" ] && echo "pack-v${{ steps.version.outputs.result }}-linux-sbom.cdx.json" || echo "pack-v${{ steps.version.outputs.result }}-linux-${arch}-sbom.cdx.json")
-
-              cosign attach sbom --sbom "$sbom_json_file" \
-                --type cyclonedx \
-                --platform "linux/${arch}" \
-                "$tag@${IMG_DIGEST}"
+              cp "$sbom_json_file" "sboms/${arch}-sbom.cdx.json"
             done < architectures.txt
+
+            jq -s '.[0] * {"components": ([.[].components] | add)}' sboms/*-sbom.cdx.json > combined-sbom.cdx.json
+
+            cosign attach sbom --sbom "combined-sbom.cdx.json" \
+              --type cyclonedx \
+              "$tag@${IMG_DIGEST}"
 
             cosign sign -r -y \
               -a version=${{ steps.version.outputs.result }} \
