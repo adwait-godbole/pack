@@ -76,6 +76,7 @@ jobs:
                 combined-sbom.cdx.json "$sbom_json_file" > temp.json && mv temp.json combined-sbom.cdx.json
             fi
           done < architectures.txt
+          
           jq --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
             '.metadata.timestamp = $timestamp' combined-sbom.cdx.json > temp.json && mv temp.json combined-sbom.cdx.json
       - name: Login to Dockerhub
