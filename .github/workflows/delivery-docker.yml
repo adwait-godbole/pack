@@ -79,6 +79,10 @@ jobs:
           
           jq --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
             '.metadata.timestamp = $timestamp' combined-sbom.cdx.json > temp.json && mv temp.json combined-sbom.cdx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: combined-sbom-${{ matrix.config }}.cdx.json          
+          path: combined-sbom.cdx.json
       - name: Login to Dockerhub
         uses: docker/login-action@v3
         with:
@@ -97,10 +101,6 @@ jobs:
             --provenance=false \
             --push
           echo "IMG_DIGEST=$(crane digest ${{ env.IMG_NAME }}:${{ steps.version.outputs.result }}${{ matrix.suffix }})" >> $GITHUB_ENV
-      - uses: actions/upload-artifact@v4
-        with:
-          name: combined-sbom.cdx.json
-          path: combined-sbom.cdx.json
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
       - name: Attach combined SBOM, Sign and Verify Images using cosign
