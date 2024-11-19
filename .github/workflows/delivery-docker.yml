@@ -105,18 +105,19 @@ jobs:
         run: |
           secure_image_release() {
             local tag=$1
-            local alias=${2:-}
+            local digest=$2
+            local alias=${3:-}
 
             cosign attest --predicate "combined-sbom.cdx.json" \
               --type cyclonedx \
               -y \
-              "$tag@${IMG_DIGEST}"
+              "$tag@$digest"
 
             cosign sign -r -y \
               -a version=${{ steps.version.outputs.result }} \
               -a config=${{ matrix.config }} \
               ${alias:+-a alias=$alias} \
-              "$tag@${IMG_DIGEST}"
+              "$tag@$digest"
 
             cosign verify \
               --certificate-identity-regexp "https://github.com/${{ github.repository_owner }}/pack/.github/workflows/delivery-docker.yml" \
@@ -124,25 +125,27 @@ jobs:
               -a version=${{ steps.version.outputs.result }} \
               -a config=${{ matrix.config }} \
               ${alias:+-a alias=$alias} \
-              "$tag@${IMG_DIGEST}"
+              "$tag@$digest"
 
             cosign verify-attestation \
               --certificate-identity-regexp "https://github.com/${{ github.repository_owner }}/pack/.github/workflows/delivery-docker.yml" \
               --certificate-oidc-issuer https://token.actions.githubusercontent.com \
               --type cyclonedx \
-              "$tag@${IMG_DIGEST}"
+              "$tag@$digest"
           }
 
-          secure_image_release "${{ env.IMG_NAME }}:${{ steps.version.outputs.result }}${{ matrix.suffix }}"
+          secure_image_release "${{ env.IMG_NAME }}:${{ steps.version.outputs.result }}${{ matrix.suffix }}" "${IMG_DIGEST}"
 
           if [[ ("${{ github.event.release }}" != "" || "${{ github.event.inputs.tag_latest }}" == "true") ]]; then            
             if [[ "${{ matrix.config }}" == "base" ]]; then
               crane copy ${{ env.IMG_NAME }}:${{ steps.version.outputs.result }}${{ matrix.suffix }} ${{ env.IMG_NAME }}:base
-              secure_image_release "${{ env.IMG_NAME }}:base" "base"
+              base_img_digest=$(crane digest ${{ env.IMG_NAME }}:base)
+              secure_image_release "${{ env.IMG_NAME }}:base" "$base_img_digest" "base"
             fi
 
             if [[ "${{ matrix.config }}" != "base" ]]; then            
               crane copy ${{ env.IMG_NAME }}:${{ steps.version.outputs.result }}${{ matrix.suffix }} ${{ env.IMG_NAME }}:latest
-              secure_image_release "${{ env.IMG_NAME }}:latest" "latest"
+              latest_img_digest=$(crane digest ${{ env.IMG_NAME }}:latest)
+              secure_image_release "${{ env.IMG_NAME }}:latest" "$latest_img_digest" "latest"
             fi
           fi
